@@ -14,7 +14,7 @@ package com.hurlant.crypto.rsa;
 import haxe.Int32;
 import com.hurlant.crypto.tls.TLSError;
 import com.hurlant.util.Std2;
-import com.hurlant.crypto.prng.Random;
+import com.hurlant.crypto.prng.SecureRandom;
 import com.hurlant.math.BigInteger;
 import com.hurlant.util.Memory;
 
@@ -169,7 +169,6 @@ class RSAKey {
      * PKCS#1 pad. type 1 (0xff) or 2, random.
      * puts as much data from src into it, leaves what doesn't fit alone.
      */
-
     private function pkcs1pad(src:ByteArray, end:Int32, n:Int32, type:Int32 = 0x02):ByteArray {
         var out = new ByteArray();
         var p = src.position;
@@ -178,14 +177,15 @@ class RSAKey {
         var i = end - 1;
         while (i >= p && n > 11) out[--n] = src[i--];
         out[--n] = 0;
-        if (type == 0x02) { // type 2
-            var rng = new Random();
-            var x = 0;
+        if (type == 0x02) {
+            var rngBytes = SecureRandom.getSecureRandomBytes(n - 2);
+            var rngIndex = 0;
             while (n > 2) {
-                do { x = rng.nextByte(); } while ((x == 0));
+                var x = rngBytes.get(rngIndex++);  // Use get() instead of array access
+                if (x == 0) x = 1; // Ensure non-zero (PKCS#1 requirement)
                 out[--n] = x;
             }
-        } else { // type 1
+        } else {
             while (n > 2) out[--n] = 0xFF;
         }
         out[--n] = type;
@@ -271,19 +271,18 @@ class RSAKey {
      *
      */
     public static function generate(B:Int32, E:String):RSAKey {
-        var rng = new Random();
         var qs = B >> 1;
         var key = new RSAKey(null, 0, null);
         key.e = Std2.parseInt(E, 16);
         var ee = new BigInteger(E, 16, true);
         while (true) {
             while (true) {
-                key.p = bigRandom(B - qs, rng);
+                key.p = bigRandom(B - qs);
                 if (key.p.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 &&
                 key.p.isProbablePrime(10)) break;
             }
             while (true) {
-                key.q = bigRandom(qs, rng);
+                key.q = bigRandom(qs);
                 if (key.q.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 &&
                 key.q.isProbablePrime(10)) break;
             }
@@ -309,12 +308,11 @@ class RSAKey {
         return key;
     }
 
-    private static function bigRandom(bits:Int32, rnd:Random):BigInteger {
+    private static function bigRandom(bits:Int32):BigInteger {
         if (bits < 2) return BigInteger.nbv(1);
-        var x = new ByteArray();
-        rnd.nextBytes(x, (bits >> 3));
-        x.position = 0;
-        var b = new BigInteger(x, 0, true);
+        var randomBytes = SecureRandom.getSecureRandomBytes((bits + 7) >> 3);
+        var byteArray = ByteArray.fromBytes(randomBytes);
+        var b = new BigInteger(byteArray, byteArray.length, true);
         b.primify(bits, 1);
         return b;
     }
