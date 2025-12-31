@@ -6,7 +6,6 @@ docs/validation_errors.log
 *.n
 /deploy.zip
 /.idea
-/tests.*
-!/*.hxml
+/tests
 client.swf
 *.kate-swp
