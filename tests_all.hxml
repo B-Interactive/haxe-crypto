@@ -8,24 +8,28 @@
 
 --next
 -js tests/js/test.js
--cmd node tests/js/test.js
+-cmd echo "Testing JavaScript..." && node tests/js/test.js
 
 --next
 -php tests/php
--cmd php tests/php/index.php
+-cmd echo "Testing PHP..." && php tests/php/index.php
 
 #--next
-#-java tests.java
-#-cmd java -jar tests.java/HaxeCryptoTests-Debug.jar
+#-java tests/java
+#-cmd echo "Testing Java..." && java -jar tests/java/HaxeCryptoTests-Debug.jar
 
 --next
 -cpp tests/cpp
--cmd tests/cpp/HaxeCryptoTests-debug
+-cmd echo "Testing C++..." && tests/cpp/HaxeCryptoTests-debug
 
 --next
 -neko tests/neko/test.n
--cmd neko tests/neko/test.n
+-cmd echo "Testing Neko..." && neko tests/neko/test.n
 
 --next
--neko tests/hl/test.hl
--cmd hl tests/hl/test.hl
+-hl tests/hl/test.hl
+-cmd echo "Testing HashLink..." && hl tests/hl/test.hl
+
+--next
+-cs tests/cs/
+-cmd echo "Testing C#..." && mono tests/cs/bin/HaxeCryptoTests-Debug.exe
