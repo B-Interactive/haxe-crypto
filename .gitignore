@@ -6,11 +6,7 @@ docs/validation_errors.log
 *.n
 /deploy.zip
 /.idea
-/tests.js*
-/tests.cpp*
-/tests.cs*
-/tests.java*
-/tests.php*
-/tests.n*
-/tests.swf*
+/tests.*
+!/*.hxml
 client.swf
+*.kate-swp
