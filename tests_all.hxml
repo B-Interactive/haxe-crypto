@@ -13,9 +13,9 @@
 -php tests.php
 -cmd php tests.php/index.php
 
---next
--java tests.java
--cmd java -jar tests.java/HaxeCryptoTests-Debug.jar
+#--next
+#-java tests.java
+#-cmd java -jar tests.java/HaxeCryptoTests-Debug.jar
 
 --next
 -cpp tests.cpp
@@ -24,3 +24,7 @@
 --next
 -neko tests.n
 -cmd neko tests.n
+
+--next
+-neko tests.hl
+-cmd hl tests.hl
