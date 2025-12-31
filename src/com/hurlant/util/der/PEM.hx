@@ -89,18 +89,32 @@ class PEM {
                 var seq = cast(obj, Sequence);
                 // arr[0] = [ <some crap that means "rsaEncryption">, null ]; ( apparently, that's an X-509 Algorithm Identifier.
                 if (Std.string(seq.get(0).get(0)) == OID.RSA_ENCRYPTION) {
-                    seq.get(0).position = 0; // there's a 0x00 byte up front. find out why later. like, read a spec.
-                    //trace(seq.get(1));
-                    //trace(HaxeType.getClass(seq.get(1)));
-					seq.get(1).data._position = 0; // FIX: read from beginning, not from end
+                    // Handle ByteArray position reset with target-specific logic
+                    #if (cpp || hl)
+                    // On C++/HashLink, copy the ByteArray to ensure position is at 0
+                    var originalData = seq.get(1).data;
+                    var dataCopy = new ByteArray();
+                    dataCopy.writeBytes(originalData, 0, originalData.length);
+                    dataCopy.position = 0;
+                    obj = DER.parse(dataCopy);
+                    #else
+                    // On other targets, set position directly (faster)
+                    seq.get(1).data.position = 0;
                     obj = DER.parse(seq.get(1).data);
+                    #end
+                    
                     if (Std.isOfType(obj, Sequence)) {
                         seq = cast(obj, Sequence);
                         // arr[0] = modulus
-                        // arr[1] = public expt.
+                        // arr[1] = public exponent
                         return new RSAKey(
                             seq.get(0),
+                            // Handle HashLink casting issue.
+                            #if (hl)
+                            seq.get(1).intValue()                            
+                            #else
                             seq.get(1)
+                            #end
                         );
                     }
                 }
