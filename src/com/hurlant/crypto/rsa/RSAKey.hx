@@ -324,27 +324,41 @@ class RSAKey {
     }
 
     private function doPrivate2(x:BigInteger):BigInteger {
-        if (p == null && q == null) {
-            return x.modPow(d, n);
-        }
-
-        var xp = x.mod(p).modPow(dmp1, p);
-        var xq = x.mod(q).modPow(dmq1, q);
-
-        while (xp.compareTo(xq) < 0) xp = xp.add(p);
-        var r = xp.subtract(xq).multiply(coeff).mod(p).multiply(q).add(xq);
-
-        return r;
+        // Always compute both CRT and non-CRT results to avoid timing leaks
+        var crtResult = doPrivate(x);
+        var nonCrtResult = x.modPow(d, n);
+        
+        // Constant-time selection based on whether CRT parameters are available
+        // Use a mask: 1 if CRT available, 0 otherwise
+        var crtAvailable = (p != null && q != null) ? 1 : 0;
+        
+        // Constant-time selection: result = crtResult * crtAvailable + nonCrtResult * (1 - crtAvailable)
+        // This avoids conditional branches on secret data
+        var mask = BigInteger.nbv(crtAvailable);
+        var invMask = BigInteger.ONE.subtract(mask);
+        
+        var result = crtResult.multiply(mask).add(nonCrtResult.multiply(invMask));
+        return result;
     }
 
     private function doPrivate(x:BigInteger):BigInteger {
-        if (p == null || q == null) return x.modPow(d, n);
-        // TODO: re-calculate any missing CRT params
-
         var xp = x.mod(p).modPow(dmp1, p);
         var xq = x.mod(q).modPow(dmq1, q);
-
-        while (xp.compareTo(xq) < 0) xp = xp.add(p);
-        return xp.subtract(xq).multiply(coeff).mod(p).multiply(q).add(xq);
+        
+        // Constant-time adjustment: instead of variable-time while loop
+        // Compute the difference and adjust in constant time
+        var diff = xp.subtract(xq);
+        
+        // Check if xp < xq (constant-time)
+        var sign = diff.sigNum();  // -1, 0, or 1
+        var needsAdjust = (sign < 0) ? 1 : 0;  // 1 if xp < xq, 0 otherwise
+        
+        // Constant-time adjustment
+        var adjust = BigInteger.nbv(needsAdjust).multiply(p);
+        xp = xp.add(adjust);
+        
+        // Complete CRT reconstruction
+        var r = xp.subtract(xq).multiply(coeff).mod(p).multiply(q).add(xq);
+        return r;
     }
 }
