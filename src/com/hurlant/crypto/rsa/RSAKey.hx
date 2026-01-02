@@ -265,15 +265,15 @@ class RSAKey {
      * 		and perform the computation is small fragments, to keep the web browser
      * 		usable.
      *
-     * @param B
-     * @param E
+     * @param B Key size in bits. Default 2048..
+     * @param E Public exponent. Default "10001" (65537).
      * @return a new random private key B bits long, using public expt E
      *
      */
-    public static function generate(B:Int32, E:String):RSAKey {
-        // Enforce minimum key size for security (RFC 8017 recommends 2048+ bits)
+    public static function generate(B:Int32 = 2048, E:String = "10001"):RSAKey {
+        // Recommended minimum key size for security (RFC 8017 recommends 2048+ bits)
         if (B < 2048) {
-            throw "Key size must be at least 2048 bits for security";
+            trace("RSAKey.generate key size should be at least 2048 bits for security");
         }
         
         var qs = B >> 1;
