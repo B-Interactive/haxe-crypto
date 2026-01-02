@@ -328,12 +328,26 @@ class RSAKey {
         if (bits > 16384) {
             throw "Random bit length exceeds maximum allowed (16384)";
         }
-        var randomBytes = SecureRandom.getSecureRandomBytes((bits + 7) >> 3);
-        var byteArray = ByteArray.fromBytes(randomBytes);
-        var b = new BigInteger(byteArray, byteArray.length, true);
+        // Generate the required number of bytes
+        var byteLength = (bits + 7) >> 3; // Calculate byte length
+        var randomBytes = SecureRandom.getSecureRandomBytes(byteLength);
+        // Ensure the resulting number has exactly the requested bit length
+        // Set the most significant bit to 1 to ensure the number is of the correct bit length
+        var firstByte = randomBytes.get(0);
+        if (bits % 8 == 0) {
+            // If bits is a multiple of 8, set the most significant bit of the first byte
+            randomBytes.set(0, firstByte | 0x80);
+        } else {
+            // For non-multiple of 8, set the appropriate bit
+            var bitPos = 7 - ((bits - 1) % 8);
+            randomBytes.set(0, firstByte | (1 << bitPos));
+        }
+        // Create the BigInteger from the bytes
+        var b = new BigInteger(new ByteArrayData(randomBytes), true);
         b.primify(bits, 100);
         return b;
     }
+
     private function doPublic(x:BigInteger):BigInteger {
         return x.modPowInt(e, n);
     }
