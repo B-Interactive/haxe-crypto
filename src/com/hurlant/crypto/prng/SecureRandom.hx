@@ -39,17 +39,32 @@ class SecureRandom {
                 rng.GetBytes(out.getData());
                 return out;
             #elseif sys
-                // https://en.wikipedia.org/wiki//dev/random
-                var out = Bytes.alloc(length);
-                #if windows
-                    var input = sys.io.File.read("\\Device\\KsecDD");
-                #else
-                    var input = sys.io.File.read("/dev/urandom");
-                #end
+            // https://en.wikipedia.org/wiki//dev/random
+            var out = Bytes.alloc(length);
+            #if windows
+                // For windows target, use PowerShell to call .NET Crypto API
+                var proc = new sys.io.Process("powershell", [
+                    "-NoProfile",
+                    "-Command",
+                    "$r=[System.Security.Cryptography.RNGCryptoServiceProvider]::new();" + 
+                    "$b=New-Object byte[] " + length + ";$r.GetBytes($b);$r.Dispose();$b-join','"
+                ]);
+                var output = StringTools.trim(proc.stdout.readAll().toString());
+                var code = proc.exitCode();
+                proc.close();
+                if (code == 0 && output.length > 0) {
+                    var parts = output.split(",");
+                    for (i in 0...Math.min(length, parts.length)) {
+                        out.set(i, Std.parseInt(parts[i]));
+                    }                    
+                }
+            #else
+                var input = sys.io.File.read("/dev/urandom");
                 input.readBytes(out, 0, length);
-                input.close();
-                return out;
+                input.close();                
             #end
+            return out;
+        #end
         } catch (e:Dynamic) {
             reason = '$e';
         }
