@@ -29,7 +29,10 @@ class SecureRandom {
                 for (n in 0 ... length) out.set(n, bytes[n]);
                 return out;
             #elseif java
-                return Bytes.ofData(java.security.SecureRandom.getSeed(length));
+                var rng = new java.security.SecureRandom();
+                var result = Bytes.alloc(length);
+                rng.nextBytes(cast result.getData());
+                return result;
             #elseif cs
                 var out = Bytes.alloc(length);
                 var rng = new cs.system.security.cryptography.RNGCryptoServiceProvider();
