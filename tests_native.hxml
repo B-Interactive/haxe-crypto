@@ -6,9 +6,13 @@
 --each
 
 --next
--neko tests.n
--cmd neko tests.n
+-cpp tests/cpp
+-cmd echo "Testing C++..." && tests/cpp/HaxeCryptoTests-debug
 
 --next
--cpp tests.cpp
--cmd tests.cpp/HaxeCryptoTests-debug
+-neko tests/neko/test.n
+-cmd echo "Testing Neko..." && neko tests/neko/test.n
+
+--next
+-hl tests/hl/test.hl
+-cmd echo "Testing HashLink..." && hl tests/hl/test.hl

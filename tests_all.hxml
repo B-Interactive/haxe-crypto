@@ -14,9 +14,9 @@
 -php tests/php
 -cmd echo "Testing PHP..." && php tests/php/index.php
 
-#--next
-#-java tests/java
-#-cmd echo "Testing Java..." && java -jar tests/java/HaxeCryptoTests-Debug.jar
+--next
+-java tests/java
+-cmd echo "Testing Java..." && java -jar tests/java/HaxeCryptoTests-Debug.jar
 
 --next
 -cpp tests/cpp
