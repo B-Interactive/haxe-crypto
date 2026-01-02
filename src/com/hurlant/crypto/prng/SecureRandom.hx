@@ -39,10 +39,13 @@ class SecureRandom {
                 rng.GetBytes(out.getData());
                 return out;
             #elseif sys
-            // https://en.wikipedia.org/wiki//dev/random
             var out = Bytes.alloc(length);
             #if windows
-                // For windows target, use PowerShell to call .NET Crypto API
+                /**
+                 * For windows target, uses PowerShell to call .NET Crypto API.
+                 * This has numerous security and performance concerns.
+                 * @TODO: Consider creating extern that calls BCryptGenRandom.
+                 */                 
                 var proc = new sys.io.Process("powershell", [
                     "-NoProfile",
                     "-Command",
