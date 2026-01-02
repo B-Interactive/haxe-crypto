@@ -357,23 +357,24 @@ class RSAKey {
     }
 
     private function doPrivate(x:BigInteger):BigInteger {
+        // Standard CRT computation with constant-time operations
         var xp = x.mod(p).modPow(dmp1, p);
         var xq = x.mod(q).modPow(dmq1, q);
         
-        // Constant-time adjustment: instead of variable-time while loop
-        // Compute the difference and adjust in constant time
+        // Constant-time CRT reconstruction
+        // Compute (xp - xq) * coeff mod p
         var diff = xp.subtract(xq);
+        diff = diff.mod(p);  // Optional: Normalize to ensure diff is in [0, p-1] for clarity and robustness
         
-        // Check if xp < xq (constant-time)
-        var sign = diff.sigNum();  // -1, 0, or 1
-        var needsAdjust = (sign < 0) ? 1 : 0;  // 1 if xp < xq, 0 otherwise
+        // Compute h = (xp - xq) * coeff mod p
+        // But ensure this is done without secret-dependent branches
         
-        // Constant-time adjustment
-        var adjust = BigInteger.nbv(needsAdjust).multiply(p);
-        xp = xp.add(adjust);
+        var h = diff.multiply(coeff).mod(p);
         
-        // Complete CRT reconstruction
-        var r = xp.subtract(xq).multiply(coeff).mod(p).multiply(q).add(xq);
-        return r;
+        // CRT reconstruction
+        var result = h.multiply(q).add(xq);
+        
+        // Ensure result is within range
+        return result.mod(n);
     }
 }
