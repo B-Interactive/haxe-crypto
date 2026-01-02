@@ -110,8 +110,8 @@ class PEM {
                         return new RSAKey(
                             seq.get(0),
                             // Handle HashLink casting issue.
-                            #if (hl || cs)
-                            seq.get(1).intValue()                            
+                            #if (hl || cs || java)
+                            seq.get(1).intValue()
                             #else
                             seq.get(1)
                             #end
