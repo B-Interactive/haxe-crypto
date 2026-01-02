@@ -1,0 +1,11 @@
+-debug
+-lib hx3compat
+-cp src
+-cp test
+-main com.hurlant.tests.HaxeCryptoTests
+
+--each
+
+--next
+-java tests/java
+-cmd echo "Testing Java..." && java -jar tests/java/HaxeCryptoTests-Debug.jar

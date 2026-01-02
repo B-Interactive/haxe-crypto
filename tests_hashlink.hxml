@@ -1,0 +1,11 @@
+-debug
+-lib hx3compat
+-cp src
+-cp test
+-main com.hurlant.tests.HaxeCryptoTests
+
+--each
+
+--next
+-hl tests/hl/test.hl
+-cmd echo "Testing HashLink..." && hl tests/hl/test.hl

@@ -47,6 +47,16 @@ abstract ByteArray(ByteArrayData) to ByteArrayData from ByteArrayData {
         return out;
     }
 
+    public function sub(offset:Int, length:Int):ByteArray {
+        if (offset < 0 || length < 0 || offset + length > this.length) {
+            throw "Invalid sub() parameters: offset=" + offset + ", length=" + length + ", total length=" + this.length;
+        }
+        var result = new ByteArray();
+        result.writeBytes(this, offset, length);
+        result.position = 0;
+        return result;
+    }
+
     @:to public function getBytes():Bytes { return cloneBytes(this.getBytes(), 0, this.length); }
     public function toBytesArray():Array<Int32> {
         return [for (n in 0 ... length) get(n)];

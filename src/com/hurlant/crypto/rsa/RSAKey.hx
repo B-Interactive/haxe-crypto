@@ -1,7 +1,7 @@
 /**
  * RSAKey
  * 
- * An ActionScript 3 implementation of RSA + PKCS#1 (light version)
+ * A Haxe 4.x implementation of RSA
  * Copyright (c) 2007 Henri Torgemane
  * 
  * Derived from:
@@ -39,6 +39,10 @@ class RSAKey {
     // flags. flags are cool.
     private var canDecrypt:Bool;
     private var canEncrypt:Bool;
+
+    // Static default padding instances for security
+    private static var defaultOaep:com.hurlant.crypto.pad.OAEP = new com.hurlant.crypto.pad.OAEP();
+    private static var defaultPss:com.hurlant.crypto.pad.PSS = new com.hurlant.crypto.pad.PSS();
 
     public function new(
         N:BigInteger,
@@ -107,7 +111,7 @@ class RSAKey {
         _encrypt(doPublic, src, dst, length, pad, 0x02);
     }
 
-    public function decrypt(src:ByteArray, dst:ByteArray, length:Int32, pad:BigInteger -> Int32 -> Int32 -> ByteArray = null):Void {
+    public function decrypt(src:ByteArray, dst:ByteArray, length:Int32, pad:BigInteger -> Int32 -> Int32 -> ByteArray -> ByteArray = null):Void {
         _decrypt(doPrivate2, src, dst, length, pad, 0x02);
     }
 
@@ -115,13 +119,12 @@ class RSAKey {
         _encrypt(doPrivate2, src, dst, length, pad, 0x01);
     }
 
-    public function verify(src:ByteArray, dst:ByteArray, length:Int32, pad:BigInteger -> Int32 -> Int32 -> ByteArray = null):Void {
-        _decrypt(doPublic, src, dst, length, pad, 0x01);
+    public function verify(src:ByteArray, dst:ByteArray, length:Int32, pad:BigInteger -> Int32 -> Int32 -> ByteArray -> ByteArray = null, originalMessage:ByteArray = null):Void {
+        _decrypt(doPublic, src, dst, length, pad, 0x01, originalMessage);
     }
 
-    private function _encrypt(op:BigInteger -> BigInteger, src:ByteArray, dst:ByteArray, length:Int32, pad:ByteArray -> Int32 -> Int32 -> Int32 -> ByteArray, padType:Int32):Void {
-        // adjust pad if needed
-        if (pad == null) pad = pkcs1pad; // convert src to BigInteger
+    private function _encrypt(op:BigInteger->BigInteger, src:ByteArray, dst:ByteArray, length:Int32, pad:ByteArray->Int32->Int32->Int32->ByteArray, padType:Int32):Void {
+        if (pad == null) pad = defaultOaep.pad;
 
         if (src.position >= src.length) {
             src.position = 0;
@@ -142,12 +145,14 @@ class RSAKey {
         }
     }
 
-    private function _decrypt(op:BigInteger -> BigInteger, src:ByteArray, dst:ByteArray, length:Int32, pad:BigInteger -> Int32 -> Int32 -> ByteArray, padType:Int32):Void {
+    private function _decrypt(op:BigInteger -> BigInteger, src:ByteArray, dst:ByteArray, length:Int32, pad:BigInteger -> Int32 -> Int32 -> ByteArray -> ByteArray, padType:Int32, originalMessage:ByteArray = null):Void {
         // adjust pad if needed
-        // src:BigInteger, n:Int32, type:Int32 = 0x02
-        if (pad == null) {// convert src to BigInteger
-            //trace('****************** pkcs1unpad');
-            pad = pkcs1unpad;
+        if (pad == null) {
+            if (padType == 0x01) {  // Verification
+                pad = defaultPss.unpad;
+            } else {  // Decryption
+                pad = defaultOaep.unpad;
+            }
         }
 
         if (src.position >= src.length) {
@@ -158,74 +163,11 @@ class RSAKey {
         while (src.position < end) {
             var block = new BigInteger(src, bl, true);
             var chunk = op(block);
-            var b = pad(chunk, bl, padType);
+            var b = pad(chunk, bl, padType, originalMessage);
             if (b == null) throw new TLSError("Decrypt error - padding function returned null!", TLSError.decode_error);
 
             dst.writeBytes(b);
         }
-    }
-
-    /**
-     * PKCS#1 pad. type 1 (0xff) or 2, random.
-     * puts as much data from src into it, leaves what doesn't fit alone.
-     */
-    private function pkcs1pad(src:ByteArray, end:Int32, n:Int32, type:Int32 = 0x02):ByteArray {
-        var out = new ByteArray();
-        var p = src.position;
-        end = Std.int(Std2.min3(end, src.length, p + n - 11));
-        src.position = end;
-        var i = end - 1;
-        while (i >= p && n > 11) out[--n] = src[i--];
-        out[--n] = 0;
-        if (type == 0x02) {
-            var rngBytes = SecureRandom.getSecureRandomBytes(n - 2);
-            var rngIndex = 0;
-            while (n > 2) {
-                var x = rngBytes.get(rngIndex++);  // Use get() instead of array access
-                if (x == 0) x = 1; // Ensure non-zero (PKCS#1 requirement)
-                out[--n] = x;
-            }
-        } else {
-            while (n > 2) out[--n] = 0xFF;
-        }
-        out[--n] = type;
-        out[--n] = 0;
-        return out;
-    }
-
-    /**
-     *
-     * @param src
-     * @param n
-     * @param type Not used.
-     * @return
-     *
-     */
-    private function pkcs1unpad(src:BigInteger, n:Int32, type:Int32 = 0x02):ByteArray {
-        var out = new ByteArray();
-        var b = new ByteArray();
-        src.toArray(b);
-
-        b.position = 0;
-        var i = 0;
-        while (i < b.length && b[i] == 0) ++i;
-
-        if (b.length - i != n - 1 || b[i] != type) {
-            trace("PKCS#1 unpad: i=" + i + ", expected b[i]==" + type + ", got b[i]=${b[i]}");
-            return null;
-        }
-        ++i;
-        while (b[i] != 0) {
-            if (++i >= b.length) {
-                trace("PKCS#1 unpad: i=" + i + ", b[i-1]!=0 (=" + Std.string(b[i - 1]) + ")");
-                return null;
-            }
-        }
-        while (++i < b.length) {
-            out.writeByte(b[i]);
-        }
-        out.position = 0;
-        return out;
     }
 
     /**
@@ -273,7 +215,7 @@ class RSAKey {
     public static function generate(B:Int32 = 2048, E:String = "10001"):RSAKey {
         // Recommended minimum key size for security (RFC 8017 recommends 2048+ bits)
         if (B < 2048) {
-            trace("RSAKey.generate key size should be at least 2048 bits for security");
+            //trace("RSAKey.generate key size should be at least 2048 bits for security");
         }
         
         var qs = B >> 1;

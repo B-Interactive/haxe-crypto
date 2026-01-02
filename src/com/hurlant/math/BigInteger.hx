@@ -352,19 +352,13 @@ class BigInteger {
     /**
      * r = this << n*DB
      */
-
     public function dlShiftTo(n:Int, r:BigInteger):Void {
-        var i:Int;
-        i = t - 1;
-        while (i >= 0) {
-            r.a[i + n] = a[i];
-            --i;
+        if (n < 0) {
+            trace("dlShiftTo called with negative n: " + n + ", this.t: " + t);
+            throw "Invalid n in dlShiftTo: n=" + n;
         }
-        i = n - 1;
-        while (i >= 0) {
-            r.a[i] = 0;
-            --i;
-        }
+        for (i in 0...n) r.a[i] = 0;
+        for (i in 0...t) r.a[i + n] = a[i];
         r.t = t + n;
         r.s = s;
     }
