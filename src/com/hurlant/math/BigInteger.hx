@@ -1613,12 +1613,12 @@ class BigInteger {
      *
      */
 
-    public function primify(bits:Int32, t:Int32):Void {
+    public function primify(bits:Int32, t:Int32 = 100):Void {
         if (!testBit(bits - 1)) bitwiseTo(BigInteger.ONE.shiftLeft(bits - 1), Std2.op_or, this); // force MSB set
         if (isEven()) dAddOffset(1, 0);
         while (!isProbablePrime(t)) {
             dAddOffset(2, 0);
-            while (bitLength() > bits)subTo(BigInteger.ONE.shiftLeft(bits - 1), this);
+            while (bitLength() > bits) subTo(BigInteger.ONE.shiftLeft(bits - 1), this);
         }
     }
 }

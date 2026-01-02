@@ -271,20 +271,34 @@ class RSAKey {
      *
      */
     public static function generate(B:Int32, E:String):RSAKey {
+        // Enforce minimum key size for security (RFC 8017 recommends 2048+ bits)
+        if (B < 2048) {
+            throw "Key size must be at least 2048 bits for security";
+        }
+        
         var qs = B >> 1;
         var key = new RSAKey(null, 0, null);
+        
+        // Validate E: must be odd, positive, and reasonable size
+        var ee = new BigInteger(E, 16, true);
+        if (ee.isEven() || ee.compareTo(BigInteger.ONE) <= 0 || ee.bitLength() > 32) {
+            throw "Invalid public exponent E: must be odd, >1, and <2^32";
+        }
         key.e = Std2.parseInt(E, 16);
+        
         var ee = new BigInteger(E, 16, true);
         while (true) {
             while (true) {
                 key.p = bigRandom(B - qs);
+                // Increase primality tests to 100 for better security (FIPS 186-4 compliant)
                 if (key.p.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 &&
-                key.p.isProbablePrime(10)) break;
+                key.p.isProbablePrime(100)) break;
             }
             while (true) {
                 key.q = bigRandom(qs);
+                // Increase primality tests to 100
                 if (key.q.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 &&
-                key.q.isProbablePrime(10)) break;
+                key.q.isProbablePrime(100)) break;
             }
             if (key.p.compareTo(key.q) <= 0) {
                 var t = key.p;
@@ -310,13 +324,16 @@ class RSAKey {
 
     private static function bigRandom(bits:Int32):BigInteger {
         if (bits < 2) return BigInteger.nbv(1);
+        // Ensure bits is reasonable to prevent DoS
+        if (bits > 16384) {
+            throw "Random bit length exceeds maximum allowed (16384)";
+        }
         var randomBytes = SecureRandom.getSecureRandomBytes((bits + 7) >> 3);
         var byteArray = ByteArray.fromBytes(randomBytes);
         var b = new BigInteger(byteArray, byteArray.length, true);
-        b.primify(bits, 1);
+        b.primify(bits, 100);
         return b;
     }
-
     private function doPublic(x:BigInteger):BigInteger {
         return x.modPowInt(e, n);
     }
