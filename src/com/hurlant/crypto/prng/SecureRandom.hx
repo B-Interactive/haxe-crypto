@@ -55,11 +55,29 @@ class SecureRandom {
                 var output = StringTools.trim(proc.stdout.readAll().toString());
                 var code = proc.exitCode();
                 proc.close();
-                if (code == 0 && output.length > 0) {
-                    var parts = output.split(",");
-                    for (i in 0...Math.min(length, parts.length)) {
-                        out.set(i, Std.parseInt(parts[i]));
-                    }                    
+                
+                // Validate process exit code
+                if (code != 0) {
+                    throw "PowerShell process failed with exit code: " + code;
+                }
+                
+                // Parse output and validate length
+                if (output.length == 0) {
+                    throw "PowerShell returned empty output";
+                }
+                
+                var parts = output.split(",");
+                if (parts.length != length) {
+                    throw "PowerShell returned " + parts.length + " bytes, expected " + length;
+                }
+                
+                // Parse each byte value
+                for (i in 0...length) {
+                    var val = Std.parseInt(parts[i]);
+                    if (val == null || val < 0 || val > 255) {
+                        throw "Invalid byte value at index " + i + ": " + parts[i];
+                    }
+                    out.set(i, val);
                 }
             #else
                 var input = sys.io.File.read("/dev/urandom");
