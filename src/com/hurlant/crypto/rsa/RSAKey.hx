@@ -310,6 +310,13 @@ class RSAKey {
             var phi = p1.multiply(q1);
             if (phi.gcd(ee).compareTo(BigInteger.ONE) == 0) {
                 key.n = key.p.multiply(key.q);
+
+                // Validate modulus size
+                if (key.n.bitLength() != B) {
+                    // Retry with new primes if size doesn't match
+                    continue;
+                }
+
                 key.d = ee.modInverse(phi);
                 key.dmp1 = key.d.mod(p1);
                 key.dmq1 = key.d.mod(q1);
