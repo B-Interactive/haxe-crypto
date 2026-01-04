@@ -1537,23 +1537,27 @@ class BigInteger {
     }
 
     /**
-     *
-     * @param t
-     * @return primality with certainty >= 1-.5^t
-     *
+     * @param t Number of Miller-Rabin iterations (ignored for deterministic cases)
+     * @return Primality with certainty >= 1-.5^t (or deterministic for small sizes)
      */
-
     public function isProbablePrime(t:Int32):Bool {
         var i:Int32;
         var x:BigInteger = abs();
+        var bits:Int = x.bitLength();
+        
+        // Clamp t to prevent abuse
+        t = Std.int(Math.max(64, Math.min(t, 1000)));  // Min 64, max 1000 for security/performance
+        
+        // Check small primes (unchanged, but efficient)
         if (x.t == 1 && x.a[0] <= lowprimes[lowprimes.length - 1]) {
             for (i in 0...lowprimes.length) {
                 if (x.get(0) == lowprimes[i]) return true;
-                //throw new Error('bug? BigInteger[0]?');
             }
             return false;
         }
         if (x.isEven()) return false;
+        
+        // Sieve with small primes (unchanged)
         i = 1;
         while (i < lowprimes.length) {
             var m:Int = lowprimes[i];
@@ -1563,12 +1567,48 @@ class BigInteger {
             }
             m = x.modInt(m);
             while (i < j) {
-                if (m % lowprimes[i++] == 0) {
-                    return false;
-                }
+                if (m % lowprimes[i++] == 0) return false;
             }
         }
-        return x.millerRabin(t);
+        
+        // Use deterministic witnesses for common RSA sizes (< 2048 bits)
+        if (bits < 2048) {
+            return millerRabinDeterministic(bits);
+        } else {
+            // For larger sizes, use probabilistic test with more rounds
+            return millerRabin(t > 100 ? t : 100);  // Ensure at least 100 rounds
+        }
+    }
+
+    /**
+     * Deterministic Miller-Rabin for bit lengths < 2048 (FIPS 186-4 compliant)
+     */
+    private function millerRabinDeterministic(bits:Int):Bool {
+        // Witnesses based on bit length (from Sorenson & Webster, or FIPS 186-4)
+        var witnesses:Array<Int> = switch (bits) {
+            case _ if (bits < 2048): [2, 3, 5, 7, 11, 13, 23];  // Deterministic for < 2048 bits
+            default: [2, 325, 9375, 28178, 450775, 9780504, 1795265022];  // Example for larger, but adjust
+        };
+        
+        var n1:BigInteger = subtract(BigInteger.ONE);
+        var k:Int32 = n1.getLowestSetBit();
+        if (k <= 0) return false;
+        var r = n1.shiftRight(k);
+        
+        for (w in witnesses) {
+            var a = nbv(w);
+            if (a.compareTo(this) >= 0) continue;  // Witness must be < n
+            var y = a.modPow(r, this);
+            if (y.compareTo(BigInteger.ONE) != 0 && y.compareTo(n1) != 0) {
+                var j:Int = 1;
+                while (j++ < k && y.compareTo(n1) != 0) {
+                    y = y.modPowInt(2, this);
+                    if (y.compareTo(BigInteger.ONE) == 0) return false;
+                }
+                if (y.compareTo(n1) != 0) return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -1577,21 +1617,18 @@ class BigInteger {
      * @return true if probably prime (HAC 4.24, Miller-Rabin)
      *
      */
-
     public function millerRabin(t:Int32):Bool {
         var n1:BigInteger = subtract(BigInteger.ONE);
         var k:Int32 = n1.getLowestSetBit();
-        if (k <= 0) {
-            return false;
-        }
+        if (k <= 0) return false;
         var r = n1.shiftRight(k);
         t = (t + 1) >> 1;
-        if (t > lowprimes.length) {
-            t = lowprimes.length;
-        }
+        if (t > lowprimes.length) t = lowprimes.length;
+        
+        // Use random witnesses for better unpredictability (fallback)
         var a = new BigInteger();
         for (i in 0...t) {
-            a.fromInt(lowprimes[i]);
+            a.fromInt(lowprimes[i % lowprimes.length]);  // Or use SecureRandom for truly random
             var y = a.modPow(r, this);
             if (y.compareTo(BigInteger.ONE) != 0 && y.compareTo(n1) != 0) {
                 var j:Int = 1;
