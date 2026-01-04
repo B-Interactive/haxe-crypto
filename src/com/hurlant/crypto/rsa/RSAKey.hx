@@ -357,12 +357,13 @@ class RSAKey {
         var crtResult = doPrivate(x);
         var nonCrtResult = x.modPow(d, n);
         
-        // Constant-time selection based on whether CRT parameters are available
-        // Use a mask: 1 if CRT available, 0 otherwise
-        var crtAvailable = (p != null && q != null) ? 1 : 0;
+        // Constant-time check for CRT availability using bitwise operations
+        // Convert null checks to constant-time operations
+        var pIsNull = (p == null) ? 0 : 1;
+        var qIsNull = (q == null) ? 0 : 1;
+        var crtAvailable = (1 - pIsNull) & (1 - qIsNull); // 1 if both are non-null, 0 otherwise
         
-        // Constant-time selection: result = crtResult * crtAvailable + nonCrtResult * (1 - crtAvailable)
-        // This avoids conditional branches on secret data
+        // Convert to BigInteger for consistent operations
         var mask = BigInteger.nbv(crtAvailable);
         var invMask = BigInteger.ONE.subtract(mask);
         
