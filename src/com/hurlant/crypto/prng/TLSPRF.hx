@@ -9,7 +9,6 @@
  */
 package com.hurlant.crypto.prng;
 
-
 import haxe.Int32;
 import com.hurlant.util.ByteArray;
 import com.hurlant.crypto.hash.HMAC;
@@ -24,8 +23,6 @@ import com.hurlant.util.IDataOutput;
  * Still Pseudo-random, though.
  */
 class TLSPRF {
-    // XXX WAY TOO MANY STRUCTURES HERE
-
     private var seed:ByteArray; // seed
     private var s1:ByteArray; // P_MD5's secret
     private var s2:ByteArray; // P_SHA-1's secret
@@ -41,16 +38,16 @@ class TLSPRF {
 
     public function new(secret:ByteArray, label:String, seed:ByteArray) {
         var l = Math.ceil(secret.length / 2);
-        var s1 = new ByteArray();
-        var s2 = new ByteArray();
+        s1 = new ByteArray();
+        s2 = new ByteArray();
         s1.writeBytes(secret, 0, l);
         s2.writeBytes(secret, secret.length - l, l);
-        var s:ByteArray = new ByteArray();
-        s.writeUTFBytes(label);
-        s.writeBytes(seed);
-        this.seed = s;
-        this.s1 = s1;
-        this.s2 = s2;
+        
+        // Reuse the seed byte array for efficiency
+        this.seed = new ByteArray();
+        this.seed.writeUTFBytes(label);
+        this.seed.writeBytes(seed);
+        
         hmac_md5 = new HMAC(new MD5());
         hmac_sha1 = new HMAC(new SHA1());
 
@@ -68,10 +65,12 @@ class TLSPRF {
         d2.writeBytes(this.seed);
     }
 
-    // XXX HORRIBLY SLOW. REWRITE.
-
     public function nextBytes(buffer:IDataOutput, length:Int32):Void {
-        while (length-- > 0) buffer.writeByte(nextByte());
+        while (length-- > 0) {
+            if (p1.bytesAvailable == 0) more_md5();
+            if (p2.bytesAvailable == 0) more_sha1();
+            buffer.writeByte(p1.readUnsignedByte() ^ p2.readUnsignedByte());
+        }
     }
 
     public function getNextBytes(length:Int32):ByteArray {
@@ -79,12 +78,6 @@ class TLSPRF {
         nextBytes(out, length);
         out.position = 0;
         return out;
-    }
-
-    public function nextByte():Int32 {
-        if (p1.bytesAvailable == 0) more_md5();
-        if (p2.bytesAvailable == 0) more_sha1();
-        return p1.readUnsignedByte() ^ p2.readUnsignedByte();
     }
 
     public function dispose():Void {
