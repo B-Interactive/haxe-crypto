@@ -98,8 +98,34 @@ class RSAKey {
 
     public function dispose():Void {
         e = 0;
-        n.dispose();
-        n = null;
+        if (n != null) {
+            n.dispose();
+            n = null;
+        }
+        if (d != null) {
+            d.dispose();
+            d = null;
+        }
+        if (p != null) {
+            p.dispose();
+            p = null;
+        }
+        if (q != null) {
+            q.dispose();
+            q = null;
+        }
+        if (dmp1 != null) {
+            dmp1.dispose();
+            dmp1 = null;
+        }
+        if (dmq1 != null) {
+            dmq1.dispose();
+            dmq1 = null;
+        }
+        if (coeff != null) {
+            coeff.dispose();
+            coeff = null;
+        }
         Memory.gc();
     }
 
@@ -145,11 +171,10 @@ class RSAKey {
     private function _decrypt(op:BigInteger -> BigInteger, src:ByteArray, dst:ByteArray, length:Int32, pad:BigInteger -> Int32 -> Int32 -> ByteArray, padType:Int32):Void {
         // adjust pad if needed
         // src:BigInteger, n:Int32, type:Int32 = 0x02
-        if (pad == null) {// convert src to BigInteger
-            //trace('****************** pkcs1unpad');
+        if (pad == null) {
+            // convert src to BigInteger
             pad = pkcs1unpad;
         }
-
         if (src.position >= src.length) {
             src.position = 0;
         }
@@ -171,6 +196,7 @@ class RSAKey {
      */
     private function pkcs1pad(src:ByteArray, end:Int32, n:Int32, type:Int32 = 0x02):ByteArray {
         var out = new ByteArray();
+        out.length = n; // Pre-allocate to avoid repeated resizing
         var p = src.position;
         end = Std.int(Std2.min3(end, src.length, p + n - 11));
         src.position = end;
@@ -221,10 +247,12 @@ class RSAKey {
                 return null;
             }
         }
-        while (++i < b.length) {
-            out.writeByte(b[i]);
-        }
+        // Optimize: pre-allocate output size
+        out.length = b.length - i - 1;
         out.position = 0;
+        for (j in 0...out.length) {
+            out[j] = b[i + 1 + j];
+        }
         return out;
     }
 
