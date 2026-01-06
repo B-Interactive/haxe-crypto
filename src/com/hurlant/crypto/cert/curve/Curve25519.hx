@@ -1,6 +1,7 @@
 package com.hurlant.crypto.cert.curve;
 
 import haxe.Int32;
+import haxe.Int64;
 import haxe.io.Bytes;
 
 /**
@@ -31,14 +32,14 @@ import haxe.io.Bytes;
  * ```
  */
 @:forward
-abstract Vec(haxe.ds.Vector<Int32>) {
+abstract Vec(haxe.ds.Vector<Int64>) {
 	/**
 	 * Creates a new vector initialized to all zeros.
 	 */
 	public static function makeZero():Vec {
 		var r = new Vec();
 		for (i in 0...32)
-			r.setV(i, 0);
+			r.setV(i, Int64.ofInt(0));
 		return r;
 	}
 
@@ -48,8 +49,8 @@ abstract Vec(haxe.ds.Vector<Int32>) {
 	public static function makeOne():Vec {
 		var r = new Vec();
 		for (i in 1...32)
-			r.setV(i, 0);
-		r.setV(0, 1);
+			r.setV(i, Int64.ofInt(0));
+		r.setV(0, Int64.ofInt(1));
 		return r;
 	}
 
@@ -59,10 +60,10 @@ abstract Vec(haxe.ds.Vector<Int32>) {
 	private static function makeA24():Vec {
 		var r = new Vec();
 		for (i in 1...32)
-			r.setV(i, 0);
-		r.setV(0, 0x41); // 0x1DB41 = 121665
-		r.setV(1, 0xDB);
-		r.setV(2, 0x01);
+			r.setV(i, Int64.ofInt(0));
+		r.setV(0, Int64.ofInt(0x41)); // 0x1DB41 = 121665
+		r.setV(1, Int64.ofInt(0xDB));
+		r.setV(2, Int64.ofInt(0x01));
 		return r;
 	}
 
@@ -71,22 +72,22 @@ abstract Vec(haxe.ds.Vector<Int32>) {
 	 */
 	public function small(x:Int):Void {
 		for (i in 1...32)
-			this.set(i, 0);
-		this.set(0, x);
+			this.set(i, Int64.ofInt(0));
+		this.set(0, Int64.ofInt(x));
 		vnorm();
 	}
 
 	/**
 	 * Gets a value from the vector at index i.
 	 */
-	inline public function getV(i:Int):Int32 {
+	inline public function getV(i:Int):Int64 {
 		return this.get(i);
 	}
 
 	/**
 	 * Sets a value in the vector at index i.
 	 */
-	inline public function setV(i:Int, v:Int32):Void {
+	inline public function setV(i:Int, v:Int64):Void {
 		this.set(i, v);
 	}
 
@@ -103,7 +104,7 @@ abstract Vec(haxe.ds.Vector<Int32>) {
 	 */
 	public function vadd(a:Vec, b:Vec):Void {
 		for (i in 0...32)
-			setV(i, a.getV(i) + b.getV(i));
+			setV(i, Int64.add(a.getV(i), b.getV(i)));
 	}
 
 	/**
@@ -111,24 +112,24 @@ abstract Vec(haxe.ds.Vector<Int32>) {
 	 */
 	public function vsub(a:Vec, b:Vec):Void {
 		for (i in 0...32)
-			setV(i, a.getV(i) - b.getV(i));
+			setV(i, Int64.sub(a.getV(i), b.getV(i)));
 	}
 
 	/**
 	 * Multiplies two vectors and stores result in this vector.
 	 */
 	public function vmult(a:Vec, b:Vec):Void {
-		var v:Int32;
+		var v:Int64;
 		for (i in 0...32) {
-			v = 0;
+			v = Int64.ofInt(0);
 			var j = 0;
 			while (j <= i) {
-				v += a.getV(j) * b.getV(i - j);
+				v = Int64.add(v, Int64.mul(a.getV(j), b.getV(i - j)));
 				j++;
 			}
 			j = i + 1;
 			while (j < 32) {
-				v += 38 * a.getV(j) * b.getV(i + 32 - j);
+				v = Int64.add(v, Int64.mul(Int64.ofInt(38), Int64.mul(a.getV(j), b.getV(i + 32 - j))));
 				j++;
 			}
 			setV(i, v);
@@ -159,17 +160,17 @@ abstract Vec(haxe.ds.Vector<Int32>) {
 	 * Performs modular normalization to keep values within range.
 	 */
 	public function vnorm():Void {
-		var v:Int32 = 0;
+		var v:Int64 = Int64.ofInt(0);
 		for (j in 0...31) {
-			v = getV(j) + (1 << 8);
-			var c = v >> 8;
-			setV(j + 1, getV(j + 1) + (c - 1));
-			setV(j, v - (c << 8));
+			v = Int64.add(getV(j), Int64.ofInt(1 << 8));
+			var c = Int64.shr(v, 8);
+			setV(j + 1, Int64.add(getV(j + 1), Int64.sub(c, Int64.ofInt(1))));
+			setV(j, Int64.sub(v, Int64.shl(c, 8)));
 		}
-		v = getV(31) + (1 << 8);
-		var c = v >> 8;
-		setV(0, getV(0) + 38 * (c - 1));
-		setV(31, v - (c << 8));
+		v = Int64.add(getV(31), Int64.ofInt(1 << 8));
+		var c = Int64.shr(v, 8);
+		setV(0, Int64.add(getV(0), Int64.mul(Int64.ofInt(38), Int64.sub(c, Int64.ofInt(1)))));
+		setV(31, Int64.sub(v, Int64.shl(c, 8)));
 	}
 
 	/**
@@ -177,16 +178,16 @@ abstract Vec(haxe.ds.Vector<Int32>) {
 	 */
 	public function freeze(temp:Vec):Void {
 		vnorm();
-		var v:Int32 = this.get(31);
-		var x = v >>> 7;
-		this.set(31, v & 0x7f);
-		v = x * 19;
+		var v:Int64 = this.get(31);
+		var x = Int64.shr(v, 7);
+		this.set(31, Int64.and(v, Int64.ofInt(0x7f)));
+		v = Int64.mul(x, Int64.ofInt(19));
 		for (j in 0...31) {
-			v += getV(j);
-			this.set(j, v & 255);
-			v >>>= 8;
+			v = Int64.add(v, getV(j));
+			this.set(j, Int64.and(v, Int64.ofInt(255)));
+			v = Int64.ushr(v, 8);
 		}
-		v += getV(31);
+		v = Int64.add(v, getV(31));
 		setV(31, v);
 	}
 
@@ -194,7 +195,7 @@ abstract Vec(haxe.ds.Vector<Int32>) {
 	 * Creates a new vector initialized with zeros.
 	 */
 	public function new() {
-		this = new haxe.ds.Vector<Int32>(32);
+		this = new haxe.ds.Vector<Int64>(32);
 	}
 }
 
@@ -268,7 +269,7 @@ class Curve25519 {
 		} else {
 			// Unpack bytes into vector elements
 			for (i in 0...32) {
-				qx.setV(i, base.get(i));
+				qx.setV(i, Int64.ofInt(base.get(i)));
 			}
 		}
 
@@ -321,7 +322,7 @@ class Curve25519 {
 		qx.freeze(px);
 
 		for (i in 0...32) {
-			result.set(i, qx.getV(i));
+			result.set(i, Int64.toInt(qx.getV(i)) & 0xFF);
 		}
 	}
 
@@ -333,13 +334,14 @@ class Curve25519 {
 	 * @param b Boolean flag (0 or 1)
 	 */
 	private static function condSwap(x1:Vec, x2:Vec, b:Int):Void {
-		var mask = (~((b - 1) & 0xFFFFFFFF)) & 0xFFFFFFFF;
+		var all1s = Int64.make(0xFFFFFFFF, 0xFFFFFFFF);
+		var mask = Int64.xor(Int64.and(Int64.sub(Int64.ofInt(b), Int64.ofInt(1)), all1s), all1s);
 		for (i in 0...32) {
 			var a = x1.getV(i);
 			var bVal = x2.getV(i);
-			var t = (a ^ bVal) & mask;
-			x1.setV(i, a ^ t);
-			x2.setV(i, bVal ^ t);
+			var t = Int64.and(Int64.xor(a, bVal), mask);
+			x1.setV(i, Int64.xor(a, t));
+			x2.setV(i, Int64.xor(bVal, t));
 		}
 	}
 
