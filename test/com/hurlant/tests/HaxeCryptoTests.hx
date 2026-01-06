@@ -9,6 +9,7 @@ package com.hurlant.tests;
 import com.hurlant.tests.crypto.extra.UUIDTest;
 import com.hurlant.tests.crypto.extra.ROT13Test;
 import com.hurlant.tests.crypto.rsa.RSAKeyTest;
+import com.hurlant.tests.crypto.curve.Curve25519Test;
 import com.hurlant.tests.math.BigIntegerTest;
 import com.hurlant.tests.crypto.CryptoTest;
 import haxe.unit.TestRunner;
@@ -56,6 +57,7 @@ class HaxeCryptoTests {
         tr.add(new CryptoTest());
         tr.add(new BigIntegerTest());
         tr.add(new RSAKeyTest());
+        tr.add(new Curve25519Test());
         tr.add(new ROT13Test());
         tr.add(new UUIDTest());
         //tr.add(new TLSTest());
