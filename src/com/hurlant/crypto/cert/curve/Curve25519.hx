@@ -282,47 +282,90 @@ class Curve25519 {
 		var bz = Vec.makeZero();
 		var dx = Vec.makeZero();
 
-		// Initialize dx = qx - qz
-		dx.vsub(qx, qz);
+		// Montgomery ladder (RFC 7748 compliant)
 
-		// Montgomery ladder implementation
-		var y = 31;
-		while (y >= 0) {
-			var yy = e.get(y);
-			var bm = 7;
+		var x1 = Vec.makeZero();
+		x1.copy(qx); // base point x-coordinate
 
-			while (bm >= 0) {
-				var b = (yy >> 7) & 1;
-				yy <<= 1;
+		var x2 = Vec.makeOne();
+		var z2 = Vec.makeZero();
 
-				// Conditional swap of points to make operation constant time
-				condSwap(px, qx, b);
-				condSwap(pz, qz, b);
+		var x3 = Vec.makeZero();
+		x3.copy(qx);
+		var z3 = Vec.makeOne();
 
-				// Point difference calculations for ladder
-				ptDiff(tx, tz, qx, qz);
-				ptDiff(ax, az, px, pz);
+		var swap = 0;
 
-				// Point addition and doubling
-				ptAdd(qx, qz, tx, tz, ax, az, dx);
-				ptDouble(px, pz, ax, az, tx, tz);
+		var t = 254;
+		while (t >= 0) {
+			// Extract bit t from scalar (little-endian per RFC 7748)
+			var byteIndex = t >> 3;
+			var bitIndex = t & 7;
+			var k_t = (e.get(byteIndex) >> bitIndex) & 1;
 
-				// Swap back after operation to maintain consistency
-				condSwap(px, qx, b);
-				condSwap(pz, qz, b);
+			swap ^= k_t;
+			condSwap(x2, x3, swap);
+			condSwap(z2, z3, swap);
+			swap = k_t;
 
-				bm--;
-			}
-			y--;
+			// A = x2 + z2
+			ax.vadd(x2, z2);
+
+			// B = x2 - z2
+			az.vsub(x2, z2);
+
+			// AA = A^2
+			tx.vsqr(ax);
+
+			// BB = B^2
+			tz.vsqr(az);
+
+			// E = AA - BB
+			dx.vsub(tx, tz);
+
+			// C = x3 + z3
+			bx.vadd(x3, z3);
+
+			// D = x3 - z3
+			bz.vsub(x3, z3);
+
+			// DA = D * A
+			qx.vmult(bz, ax);
+
+			// CB = C * B
+			qz.vmult(bx, az);
+
+			// x3 = (DA + CB)^2
+			ax.vadd(qx, qz);
+			x3.vsqr(ax);
+
+			// z3 = x1 * (DA - CB)^2
+			az.vsub(qx, qz);
+			az.vsqr(az);
+			z3.vmult(az, x1);
+
+			// x2 = AA * BB
+			x2.vmult(tx, tz);
+
+			// z2 = E * (AA + a24 * E)
+			bz.vmult_121665(dx);
+			bz.vadd(tx, bz);
+			z2.vmult(dx, bz);
+
+			t--;
 		}
 
-		// Finalize result: compute inverse of z coordinate and scale x
-		recip(qz, tx, tz, ax, az, bx);
-		qx.vmult(px, qz);
-		qx.freeze(px);
+		// Final swap
+		condSwap(x2, x3, swap);
+		condSwap(z2, z3, swap);
+
+		// Final affine x = x2 / z2
+		recip(z2, tx, tz, ax, az, bx);
+		x2.vmult(x2, z2);
+		x2.freeze(tx);
 
 		for (i in 0...32) {
-			result.set(i, Int64.toInt(qx.getV(i)) & 0xFF);
+			result.set(i, Int64.toInt(x2.getV(i)) & 0xFF);
 		}
 	}
 
@@ -343,40 +386,6 @@ class Curve25519 {
 			x1.setV(i, Int64.xor(a, t));
 			x2.setV(i, Int64.xor(bVal, t));
 		}
-	}
-
-	/**
-	 * Point doubling in Montgomery ladder.
-	 */
-	private static function ptDouble(rx:Vec, rz:Vec, ax:Vec, az:Vec, tx:Vec, tz:Vec):Void {
-		tx.vmult(ax, ax);
-		tz.vmult(az, az);
-		rx.vmult(tx, tz);
-		tz.vsub(tx, tz);
-		rz.vmult_121665(tz);
-		tx.vadd(tx, rz);
-		rx.vmult(tx, tz);
-	}
-
-	/**
-	 * Point addition in Montgomery ladder.
-	 */
-	private static function ptAdd(rx:Vec, rz:Vec, ax:Vec, az:Vec, bx:Vec, bz:Vec, dx:Vec):Void {
-		rx.vmult(ax, bz);
-		rz.vmult(az, bx);
-		ax.vadd(rx, rz);
-		az.vsub(rx, rz);
-		rx.vmult(ax, ax);
-		ax.vmult(az, az);
-		rz.vmult(ax, dx);
-	}
-
-	/**
-	 * Compute point differences in Montgomery ladder.
-	 */
-	private static function ptDiff(rx:Vec, rz:Vec, ax:Vec, az:Vec):Void {
-		rx.vadd(ax, az);
-		rz.vsub(ax, az);
 	}
 
 	/**

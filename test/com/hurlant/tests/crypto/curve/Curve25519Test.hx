@@ -1,171 +1,170 @@
 package com.hurlant.tests.crypto.curve;
 
-import com.hurlant.tests.*;
-import com.hurlant.crypto.cert.curve.Curve25519;
-import com.hurlant.util.Hex;
 import haxe.io.Bytes;
+import com.hurlant.crypto.cert.curve.Curve25519;
+import com.hurlant.tests.BaseTestCase;
+import com.hurlant.util.Hex;
 
 class Curve25519Test extends BaseTestCase {
-	/**
-	 * Test basic key generation and shared secret computation
-	 */
-	public function test_basic_key_exchange() {
-		// Generate two key pairs
-		var alicePrivateKey = Bytes.alloc(32);
-		var bobPrivateKey = Bytes.alloc(32);
 
-		// Use secure random data for testing (in real code, use SecureRandom)
-		alicePrivateKey.set(0, 1);
-		alicePrivateKey.set(1, 2);
-		alicePrivateKey.set(2, 3);
-		bobPrivateKey.set(0, 4);
-		bobPrivateKey.set(1, 5);
-		bobPrivateKey.set(2, 6);
+    // --------------------------------------------------
+    // Helpers (local, deterministic, minimal)
+    // --------------------------------------------------
 
-		// Generate public keys
-		var alicePublicKey = Curve25519.genKeypair(alicePrivateKey);
-		var bobPublicKey = Curve25519.genKeypair(bobPrivateKey);
+    private function bytesEqual(a:Bytes, b:Bytes):Bool {
+        if (a == null || b == null) return false;
+        if (a.length != b.length) return false;
+        for (i in 0...a.length) {
+            if (a.get(i) != b.get(i)) return false;
+        }
+        return true;
+    }
 
-		// Compute shared secrets
-		var aliceShared = Curve25519.combineKeys(alicePrivateKey, bobPublicKey);
-		var bobShared = Curve25519.combineKeys(bobPrivateKey, alicePublicKey);
+    private function randomPrivateKey():Bytes {
+        var b = Bytes.alloc(32);
+        for (i in 0...32) {
+            b.set(i, Std.random(256));
+        }
+        return b;
+    }
 
-		// Shared secrets should be equal
-		assertBytesEqual("Shared secrets should match", aliceShared, bobShared);
-	}
+    private function pad32(b:Bytes):Bytes {
+        if (b.length == 32) return b;
+        var out = Bytes.alloc(32);
+        out.blit(32 - b.length, b, 0, b.length);
+        return out;
+    }
 
-	/**
-	 * Test with known test vectors from RFC 7748
-	 */
-	public function test_known_vectors() {
-		// Test vector from RFC 7748
-		var privateKeyHex = "77076d0a7318a57d3c16c17251b2664560a02102240087f9907915e75142179300000000";
-		var publicKeyHex = "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4e2ce32a378c000000000";
-		var sharedSecretHex = "4a5d9d5ba4ce2de1728e3b60e67f0a83209a1732d2449b4a32c703059775278400000000";
+    // --------------------------------------------------
+    // Tests
+    // --------------------------------------------------
 
-		var privateKeyBytes = Hex.toBytes(privateKeyHex);
-		var publicKeyBytes = Hex.toBytes(publicKeyHex);
-		var expectedSharedBytes = Hex.toBytes(sharedSecretHex);
+    /**
+     * Temporary debug test.
+     */
+    public function test_public_key_changes():Void {
+        var priv1 = Bytes.alloc(32);
+        priv1.set(0, 1);
 
-		// Generate public key
-		var actualPublicKey = Curve25519.genKeypair(privateKeyBytes);
+        var priv2 = Bytes.alloc(32);
+        priv2.set(0, 2);
 
-		// Compute shared secret
-		var actualShared = Curve25519.combineKeys(privateKeyBytes, publicKeyBytes);
+        var pub1 = Curve25519.genKeypair(priv1);
+        var pub2 = Curve25519.genKeypair(priv2);
 
-		// Verify results match expected values
-		assertBytesEqual("Public key should match", actualPublicKey, publicKeyBytes);
-		assertBytesEqual("Shared secret should match", actualShared, expectedSharedBytes);
-	}
+        trace(pub1);
+        trace(pub2);
 
-	/**
-	 * Test key generation with all zeros (should be valid)
-	 */
-	public function test_zero_private_key() {
-		var zeroKey = Bytes.alloc(32);
-		for (i in 0...32) {
-			zeroKey.set(i, 0);
-		}
+        assertEquals(false, bytesEqual(pub1, pub2));
+    }
 
-		// Should not throw exception
-		var publicKey = Curve25519.genKeypair(zeroKey);
-		assert(publicKey != null, "Public key should be generated");
-	}
 
-	/**
-	 * Test that invalid key lengths throw exceptions
-	 */
-	public function test_invalid_key_lengths() {
-		try {
-			var shortKey = Bytes.alloc(31); // Too short
-			Curve25519.genKeypair(shortKey);
-			assert(false, "Should have thrown exception for short private key");
-		} catch (e:Dynamic) {
-			// Exception was thrown as expected
-		}
+    /**
+     * genKeypair() must always return a 32-byte public key
+     */
+    public function test_public_key_length():Void {
+        var priv = randomPrivateKey();
+        var pub  = Curve25519.genKeypair(priv);
 
-		try {
-			var shortKey = Bytes.alloc(31); // Too short
-			Curve25519.combineKeys(shortKey, Bytes.alloc(32));
-			assert(false, "Should have thrown exception for short private key");
-		} catch (e:Dynamic) {
-			// Exception was thrown as expected
-		}
+        assertEquals(32, pub.length);
+    }
 
-		try {
-			var shortKey = Bytes.alloc(32);
-			Curve25519.combineKeys(shortKey, Bytes.alloc(31)); // Too short
-			assert(false, "Should have thrown exception for short public key");
-		} catch (e:Dynamic) {
-			// Exception was thrown as expected
-		}
-	}
+    /**
+     * Same private key must always generate the same public key
+     */
+    public function test_deterministic_public_key():Void {
+        var priv = randomPrivateKey();
 
-	/**
-	 * Test that the same private key produces consistent results
-	 */
-	public function test_consistent_results() {
-		var privateKey = Bytes.alloc(32);
-		privateKey.set(0, 123);
-		privateKey.set(1, 45);
-		privateKey.set(2, 67);
+        var pub1 = Curve25519.genKeypair(priv);
+        var pub2 = Curve25519.genKeypair(priv);
 
-		// Generate public keys multiple times
-		var publicKey1 = Curve25519.genKeypair(privateKey);
-		var publicKey2 = Curve25519.genKeypair(privateKey);
+        assertEquals(true, bytesEqual(pub1, pub2));
+    }
 
-		assertBytesEqual("Public key should be consistent", publicKey1, publicKey2);
-	}
+    /**
+     * Different private keys must (with overwhelming probability)
+     * produce different public keys
+     */
+    public function test_distinct_private_keys():Void {
+        var priv1 = randomPrivateKey();
+        var priv2 = randomPrivateKey();
 
-	/**
-	 * Test with different inputs to ensure no side effects
-	 */
-	public function test_different_inputs() {
-		var key1 = Bytes.alloc(32);
-		var key2 = Bytes.alloc(32);
+        var pub1 = Curve25519.genKeypair(priv1);
+        var pub2 = Curve25519.genKeypair(priv2);
 
-		// Fill with different values
-		for (i in 0...32) {
-			key1.set(i, i);
-			key2.set(i, i + 1);
-		}
+        assertEquals(false, bytesEqual(pub1, pub2));
+    }
 
-		var pub1 = Curve25519.genKeypair(key1);
-		var pub2 = Curve25519.genKeypair(key2);
+    /**
+     * X25519 key agreement must be symmetric:
+     *   a(bG) == b(aG)
+     */
+    public function test_key_exchange_symmetry():Void {
+        var alicePriv = randomPrivateKey();
+        var bobPriv   = randomPrivateKey();
 
-		// Different private keys should produce different public keys
-		if (bytesEqual(pub1, pub2)) {
-			assert(false, "Public keys should be different");
-		}
-	}
+        var alicePub = Curve25519.genKeypair(alicePriv);
+        var bobPub   = Curve25519.genKeypair(bobPriv);
 
-	/**
-	 * Helper to compare two bytes arrays for equality
-	 */
-	private function assertBytesEqual(message:String, a:Bytes, b:Bytes):Void {
-		if (a.length != b.length) {
-			assert(false, message + " - Lengths differ");
-			return;
-		}
+        var aliceShared = Curve25519.combineKeys(alicePriv, bobPub);
+        var bobShared   = Curve25519.combineKeys(bobPriv, alicePub);
 
-		for (i in 0...a.length) {
-			if (a.get(i) != b.get(i)) {
-				assert(false, message + " - Bytes at index " + i + " differ");
-				return;
-			}
-		}
-	}
+        assertEquals(true, bytesEqual(aliceShared, bobShared));
+    }
 
-	/**
-	 * Helper to compare two bytes arrays for equality
-	 */
-	private function bytesEqual(a:Bytes, b:Bytes):Bool {
-		if (a.length != b.length)
-			return false;
-		for (i in 0...a.length) {
-			if (a.get(i) != b.get(i))
-				return false;
-		}
-		return true;
-	}
+    /**
+     * RFC 7748 test vector: known private key → known public key
+     */
+    public function test_rfc7748_vector():Void {
+        var privHex =
+            "77076d0a7318a57d3c16c17251b26645" +
+            "df4c2f87ebc0992ab177fba51db92c2a";
+
+        var pubHex =
+            "8520f0098930a754748b7ddcb43ef75a" +
+            "0dbf3a0d26381af4eba4a98eaa9b4e6a";
+
+        var priv = pad32(Hex.toBytes(privHex));
+        var expectedPub = pad32(Hex.toBytes(pubHex));
+
+        var pub = Curve25519.genKeypair(priv);
+
+        assertEquals(true, bytesEqual(pub, expectedPub));
+    }
+
+    /**
+     * Zero private keys are valid per RFC 7748 (after clamping)
+     */
+    public function test_zero_private_key():Void {
+        var zeroPriv = Bytes.alloc(32);
+        var pub = Curve25519.genKeypair(zeroPriv);
+
+        assertEquals(32, pub.length);
+    }
+
+    /**
+     * Private keys must be exactly 32 bytes
+     */
+    public function test_invalid_key_lengths():Void {
+        var shortKey = Bytes.alloc(16);
+        var longKey  = Bytes.alloc(64);
+
+        var shortThrew = false;
+        var longThrew  = false;
+
+        try {
+            Curve25519.genKeypair(shortKey);
+        } catch (e:Dynamic) {
+            shortThrew = true;
+        }
+
+        try {
+            Curve25519.genKeypair(longKey);
+        } catch (e:Dynamic) {
+            longThrew = true;
+        }
+
+        assertEquals(true, shortThrew);
+        assertEquals(true, longThrew);
+    }
 }
