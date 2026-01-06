@@ -32,9 +32,23 @@ class Hex {
     }
 
     /**
+     * Generates byte-array from given hexadecimal string
+     * Returns haxe.io.Bytes instead of ByteArray
+     */
+    public static function toBytes(hex:String):Bytes {
+        hex = new EReg('^0x|\\s|:', "gm").replace(hex, "");
+        if ((hex.length & 1) == 1) hex = "0" + hex;
+
+        var a = Bytes.alloc(Std.int(hex.length / 2));
+        for (i in 0 ... a.length) {
+            a.set(i, Std2.parseInt(hex.substr(i * 2, 2), 16));
+        }
+        return a;
+    }
+
+    /**
      * Generates lowercase hexadecimal string from given byte-array
      */
-
     public static function fromArray(array:ByteArray, colons:Bool = false):String {
         var s:String = "";
         for (i in 0...array.length) {
@@ -44,6 +58,17 @@ class Hex {
         return s;
     }
 
+    /**
+     * Generates lowercase hexadecimal string from given haxe.io.Bytes
+     */
+    public static function fromBytes(bytes:Bytes, colons:Bool = false):String {
+        var s:String = "";
+        for (i in 0...bytes.length) {
+            s += ("0" + Std2.string(bytes.get(i), 16)).substr(-2, 2);
+            if (colons) if (i < bytes.length - 1) s += ":";
+        }
+        return s;
+    }
 
     /**
      * Generates string from given hexadecimal string
@@ -56,7 +81,6 @@ class Hex {
     /**
      * Convenience method for generating string using iso-8859-1
      */
-
     public static function toRawString(hex:String):String {
         return toString(hex, "iso-8859-1");
     }
@@ -64,7 +88,6 @@ class Hex {
     /**
      * Generates hexadecimal string from given string
      */
-
     public static function fromString(str:String, colons:Bool = false, charSet:String = "utf-8"):String {
         var a:ByteArray = new ByteArray();
         a.writeMultiByte(str, charSet);
@@ -75,9 +98,7 @@ class Hex {
     /**
      * Convenience method for generating hexadecimal string using iso-8859-1
      */
-
     public static function fromRawString(str:String, colons:Bool = false):String {
         return fromString(str, colons, "iso-8859-1");
     }
 }
-
