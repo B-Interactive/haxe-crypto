@@ -40,20 +40,35 @@ class Curve25519Test extends BaseTestCase {
     // --------------------------------------------------
 
     /**
+     * Temporary simple test
+     */
+    public function test_simple_output():Void {
+        var priv = Bytes.alloc(32);
+        for (i in 0...32) priv.set(i, i);  // 0,1,2,3...31
+        
+        var pub = Curve25519.genKeypair(priv);
+        
+        trace("Generated public key:");
+        for (i in 0...32) {
+            trace("  byte[" + i + "] = " + pub.get(i));
+        }
+    }
+
+    /**
      * Temporary debug test.
      */
     public function test_public_key_changes():Void {
         var priv1 = Bytes.alloc(32);
-        priv1.set(0, 1);
+        priv1.set(0, 8);   // 8 & 248 = 8
 
         var priv2 = Bytes.alloc(32);
-        priv2.set(0, 2);
+        priv2.set(0, 16);  // 16 & 248 = 16
 
         var pub1 = Curve25519.genKeypair(priv1);
         var pub2 = Curve25519.genKeypair(priv2);
 
-        trace(pub1);
-        trace(pub2);
+        trace("pub1 hex: " + Hex.fromBytes(pub1));
+        trace("pub2 hex: " + Hex.fromBytes(pub2));
 
         assertEquals(false, bytesEqual(pub1, pub2));
     }

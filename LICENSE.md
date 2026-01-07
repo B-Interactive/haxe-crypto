@@ -34,8 +34,8 @@ This library is offered under the **BSD** license and includes several derivativ
 >
 > Base64 is copyright (c) 2006 Steve Webster (http://dynamicflash.com/goodies/base64)
 >
-> Curve25519 is a derivative work of https://github.com/ntrf/Curve25519
-> Copyright (c) 2017 Anton Nesterov
+> Curve25519 is a derivative work of TweetNaCl
+> Public-domain
 >
 > Redistribution and use in source and binary forms, with or without modification,
 > are permitted provided that the following conditions are met:

@@ -1,0 +1,10 @@
+-debug
+-cp src
+-cp test
+-main com.hurlant.tests.crypto.curve.DebugTest
+
+--each
+
+--next
+-hl tests/hl/test.hl
+-cmd echo "Testing HashLink..." && hl tests/hl/test.hl
